@@ -18,7 +18,7 @@
 !/[Aa]ssets/**/*.meta
 
 # Asset Packages to ignore
-# Assets/Standard\ Assets/<Asset Name>/*
+Assets/Standard\ Assets/*
 Assets/Firebase/Plugins/*
 
 
