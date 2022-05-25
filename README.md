@@ -2,6 +2,8 @@
 Objective 
 Create a simple mini-game in Unity that allows players to select cubes that sum to a target value. 
 
+Using Unity 2021.1.15f1
+
 No Bonus features were added.
 
 Tunables:
@@ -18,3 +20,8 @@ Assumptions/Modifications Made:
 
 Video Link:
 https://www.youtube.com/watch?v=eb__KYXQ5qY
+
+Instructions:
+- Unzip playgroundbuild.zip and run Playground.exe to play.
+- Pull repo and open Playground Unity Project
+- May need to import TextmeshPro library.
