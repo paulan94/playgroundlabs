@@ -10,32 +10,36 @@ namespace PaulLabs
     //this class manages game states, starts/ends/resets the game state.
     public class GameManager : MonoBehaviour
     {
-
-        public static GameManager Instance;
-
+        //Tunables
         [Range(1, 10)] public int TreeDepthMin = 1;
         [Range(1, 10)] public int TreeDepthMax = 10;
 
         [Range(1, 100)] public int NodeValMin = 1;
         [Range(1, 100)] public int NodeValMax = 100;
 
+        //Publics
         public Vector3 SpawnLocation = new Vector3(0, 3, 0);
 
         public int TargetSum = 0;
-        public List<Node> SelectedNodeList = new List<Node>();
-        public List<Node> NodeList = new List<Node>();
-        public List<NodeMB> NodeGOList = new List<NodeMB>();
 
-        public AudioClip VictorySound;
-        public GameObject NodeGO;
+        public GameObject NodeParent;
+        public GameObject NodePrefab;
         public TMP_Text TargetSumText;
         public int NodeLayer;
+
         public GameObject SuccessPanel;
-        public GameObject NodeParent;
+        public AudioClip VictorySound;
         public GameObject FireWorksFX;
 
+        //Privates
         AudioSource _audioSource;
         PlayerControls _playerControls;
+
+        List<Node> _selectedNodeList = new List<Node>(); //List to track selected nodes.
+        List<NodeMB> _nodeGOList = new List<NodeMB>();
+
+        //Statics
+        public static GameManager Instance;
         static float moveMultiplier = .25f;
 
         private void OnEnable()
@@ -71,6 +75,7 @@ namespace PaulLabs
             HandleMovement();
         }
 
+        //WASD movement for camera and mouse scroll to zoom in and out.
         private void HandleMovement()
         {
             Vector2 move = _playerControls.Player.Move.ReadValue<Vector2>();
@@ -101,19 +106,19 @@ namespace PaulLabs
                 if (nodeMB.Selected)
                 {
                     nodeMB.UnSelectNode();
-                    SelectedNodeList.Remove(nodeMB.Node);
+                    _selectedNodeList.Remove(nodeMB.Node);
                 }
                 else
                 {
-                    foreach (NodeMB n in NodeGOList)
+                    foreach (NodeMB n in _nodeGOList)
                     {
                         if (n.Node.Depth == nodeMB.Node.Depth)
                         {
                             n.UnSelectNode();
                         }
                     }
-                    SelectedNodeList.RemoveAll(n => n.Depth == nodeMB.Node.Depth);
-                    SelectedNodeList.Add(nodeMB.Node);
+                    _selectedNodeList.RemoveAll(n => n.Depth == nodeMB.Node.Depth);
+                    _selectedNodeList.Add(nodeMB.Node);
                     nodeMB.SelectNode();
                 }
             }
@@ -122,25 +127,26 @@ namespace PaulLabs
         public void StartGame()
         {
             int TreeDepth = Random.Range(TreeDepthMin, TreeDepthMax);
-            Node root = CreateNode(TreeDepth, Random.Range(NodeValMin, NodeValMax));
-            PrintPreOrder(root);
-            InstantiateNodes(root, SpawnLocation);
+            Node root = CreateNode(TreeDepth, Random.Range(NodeValMin, NodeValMax), SpawnLocation);
             SetTargetSum();
 
         }
 
-
-        public Node CreateNode(int depth, int val)
+        public Node CreateNode(int depth, int val, Vector3 spawnLocation)
         {
             Node node = new Node(val, depth);
+            GameObject nodeGO = Instantiate(NodePrefab, spawnLocation, Quaternion.identity);
+            nodeGO.transform.SetParent(NodeParent.transform);
+            nodeGO.GetComponent<NodeMB>().Node = node;
+            nodeGO.transform.GetComponentInChildren<TMP_Text>().text = node.NodeVal.ToString();
+            _nodeGOList.Add(nodeGO.GetComponent<NodeMB>());
 
             if (depth == 1)
             {
-                NodeList.Add(node); //Add node by level for use in getting target sum.
                 return node;
             }
-            node.LeftNode = CreateNode(depth - 1, Random.Range(NodeValMin, NodeValMax));
-            node.RightNode = CreateNode(depth - 1, Random.Range(NodeValMin, NodeValMax));
+            node.LeftNode = CreateNode(depth - 1, Random.Range(NodeValMin, NodeValMax), spawnLocation + new Vector3(-Mathf.Pow(2, node.Depth) / 2, -1.5f, 0));
+            node.RightNode = CreateNode(depth - 1, Random.Range(NodeValMin, NodeValMax), spawnLocation + new Vector3(Mathf.Pow(2, node.Depth) / 2, -1.5f, 0));
             return node;
         }
 
@@ -150,29 +156,14 @@ namespace PaulLabs
             int maxIdx = 0;
             int power = 0;
 
-            while (maxIdx < NodeList.Count())
+            while (maxIdx < _nodeGOList.Count())
             {
-                TargetSum += NodeList[Random.Range(minIdx, maxIdx)].NodeVal;
+                TargetSum += _nodeGOList[Random.Range(minIdx, maxIdx)].Node.NodeVal;
                 power++;
                 minIdx = maxIdx + 1;
                 maxIdx = maxIdx + 1 + (int)(Mathf.Pow(2, power));
             }
             TargetSumText.text = $"TargetSum: {TargetSum}";
-        }
-
-        public void InstantiateNodes(Node node, Vector3 spawnLocation)
-        {
-            if (node != null)
-            {
-                GameObject nodeGO = Instantiate(NodeGO, spawnLocation, Quaternion.identity);
-                nodeGO.transform.SetParent(NodeParent.transform);
-                nodeGO.GetComponent<NodeMB>().Node = node;
-                nodeGO.transform.GetComponentInChildren<TMP_Text>().text = node.NodeVal.ToString();
-                NodeGOList.Add(nodeGO.GetComponent<NodeMB>());
-                InstantiateNodes(node.LeftNode, spawnLocation + new Vector3(-Mathf.Pow(2, node.Depth) / 2, -1.5f, 0));
-                InstantiateNodes(node.RightNode, spawnLocation + new Vector3(Mathf.Pow(2, node.Depth) / 2, -1.5f, 0));
-
-            }
         }
 
         //Used for debugging
@@ -188,11 +179,12 @@ namespace PaulLabs
 
         //check selected nodes sum to the target
         public void CheckVictory()
+
         {
-            if (SelectedNodeList.Sum(node => node.NodeVal) == TargetSum)
+            if (_selectedNodeList.Sum(node => node.NodeVal) == TargetSum)
             {
                 PlayVictorySound();
-                ShowSuccessImage();
+                SuccessPanel.SetActive(true);
                 GameObject fx = Instantiate(FireWorksFX, SpawnLocation, Quaternion.identity);
                 Destroy(fx, 1f);
             }
@@ -203,9 +195,8 @@ namespace PaulLabs
         public void ResetGame()
         {
             TargetSum = 0;
-            NodeList.Clear();
-            NodeGOList.Clear();
-            SelectedNodeList.Clear();
+            _nodeGOList.Clear();
+            _selectedNodeList.Clear();
             SuccessPanel.SetActive(false);
             foreach (Transform t in NodeParent.transform)
             {
@@ -218,11 +209,6 @@ namespace PaulLabs
         {
             _audioSource.clip = VictorySound;
             _audioSource.Play();
-        }
-
-        void ShowSuccessImage()
-        {
-            SuccessPanel.SetActive(true);
         }
 
     }

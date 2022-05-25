@@ -658,19 +658,18 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4dd97e1e2dfd9a742bfbd83be663e5f3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  TreeDepthMin: 4
-  TreeDepthMax: 6
+  TreeDepthMin: 3
+  TreeDepthMax: 4
   NodeValMin: 1
   NodeValMax: 10
   SpawnLocation: {x: 0, y: 3, z: 0}
   TargetSum: 0
-  NodeGOList: []
-  VictorySound: {fileID: 8300000, guid: 49a2da03c12990945b21861fe7ff8aed, type: 3}
-  NodeGO: {fileID: 4642985685248972380, guid: 5f15a87386fba0941a4137f6a7a9b4d6, type: 3}
+  NodeParent: {fileID: 626971765}
+  NodePrefab: {fileID: 4642985685248972380, guid: 5f15a87386fba0941a4137f6a7a9b4d6, type: 3}
   TargetSumText: {fileID: 579664652}
   NodeLayer: 6
   SuccessPanel: {fileID: 1615942618}
-  NodeParent: {fileID: 626971765}
+  VictorySound: {fileID: 8300000, guid: 49a2da03c12990945b21861fe7ff8aed, type: 3}
   FireWorksFX: {fileID: 9112852391442002731, guid: 4696faf2da36fb44ebb45b9496debae6, type: 3}
 --- !u!4 &649679515
 Transform:
