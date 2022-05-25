@@ -3,6 +3,7 @@ using UnityEngine;
 using System.Linq;
 using TMPro;
 using UnityEngine.InputSystem;
+using UnityEngine.UI;
 
 namespace PaulLabs
 {
@@ -12,13 +13,15 @@ namespace PaulLabs
 
         public static GameManager Instance;
 
-        [Range(3, 10)] public int TreeDepthMin = 3;
-        [Range(3, 10)] public int TreeDepthMax = 10;
+        [Range(1, 10)] public int TreeDepthMin = 1;
+        [Range(1, 10)] public int TreeDepthMax = 10;
 
         [Range(1, 100)] public int NodeValMin = 1;
         [Range(1, 100)] public int NodeValMax = 100;
 
-        public int TargetSum;
+        public Vector3 SpawnLocation = new Vector3(0, 3, 0);
+
+        public int TargetSum = 0;
         public List<Node> SelectedNodeList = new List<Node>();
         public List<Node> NodeList = new List<Node>();
         public List<NodeMB> NodeGOList = new List<NodeMB>();
@@ -26,12 +29,14 @@ namespace PaulLabs
         public AudioClip VictorySound;
         public GameObject NodeGO;
         public TMP_Text TargetSumText;
-        public int nodeLayer;
+        public int NodeLayer;
+        public GameObject SuccessPanel;
+        public GameObject NodeParent;
+        public GameObject FireWorksFX;
 
-        AudioSource audioSource;
-
-        private PlayerControls _playerControls;
-
+        AudioSource _audioSource;
+        PlayerControls _playerControls;
+        static float moveMultiplier = .25f;
 
         private void OnEnable()
         {
@@ -40,15 +45,8 @@ namespace PaulLabs
 
         private void OnDisable()
         {
+            _playerControls.Node.Click.performed -= SelectNodeClick;
             _playerControls.Disable();
-        }
-
-        private void Update()
-        {
-            if (_playerControls.Node.Click.triggered)
-            {
-                Debug.Log("triggered click!");
-            }
         }
 
         private void Awake()
@@ -63,48 +61,82 @@ namespace PaulLabs
 
         private void Start()
         {
-            audioSource = this.GetComponent<AudioSource>();
+            _audioSource = this.GetComponent<AudioSource>();
             _playerControls.Node.Click.performed += SelectNodeClick;
             StartGame();
+        }
+
+        private void Update()
+        {
+            HandleMovement();
+        }
+
+        private void HandleMovement()
+        {
+            Vector2 move = _playerControls.Player.Move.ReadValue<Vector2>();
+            Vector2 zoom = _playerControls.Player.Zoom.ReadValue<Vector2>();
+            float zoomVal = 1f;
+            if (zoom.y == -120f)
+            {
+                zoomVal = -1f;
+                Camera.main.transform.position += new Vector3(0, 0, zoomVal);
+            }
+            else if (zoom.y == 120f)
+            {
+                Camera.main.transform.position += new Vector3(0, 0, zoomVal);
+            }
+
+            float xMove = move.x * moveMultiplier;
+            float yMove = move.y * moveMultiplier;
+            Camera.main.transform.position += new Vector3(xMove, yMove, 0);
         }
 
         private void SelectNodeClick(InputAction.CallbackContext context)
         {
             RaycastHit hit;
             Ray ray = Camera.main.ScreenPointToRay(Mouse.current.position.ReadValue());
-            if (Physics.Raycast(ray, out hit, Mathf.Infinity, 1 << nodeLayer))
+            if (Physics.Raycast(ray, out hit, Mathf.Infinity, 1 << NodeLayer))
             {
                 NodeMB nodeMB = hit.transform.GetComponent<NodeMB>();
-                foreach (NodeMB n in NodeGOList)
+                if (nodeMB.Selected)
                 {
-                    if (n.Node.Depth == nodeMB.Node.Depth)
-                    {
-                        n.UnSelectNode();
-                    }
+                    nodeMB.UnSelectNode();
+                    SelectedNodeList.Remove(nodeMB.Node);
                 }
-                SelectedNodeList.RemoveAll(n => n.Depth == nodeMB.Node.Depth);
-                SelectedNodeList.Add(nodeMB.Node);
-                nodeMB.SelectNode();
+                else
+                {
+                    foreach (NodeMB n in NodeGOList)
+                    {
+                        if (n.Node.Depth == nodeMB.Node.Depth)
+                        {
+                            n.UnSelectNode();
+                        }
+                    }
+                    SelectedNodeList.RemoveAll(n => n.Depth == nodeMB.Node.Depth);
+                    SelectedNodeList.Add(nodeMB.Node);
+                    nodeMB.SelectNode();
+                }
             }
         }
 
         public void StartGame()
         {
             int TreeDepth = Random.Range(TreeDepthMin, TreeDepthMax);
-            Node root = CreateNode(TreeDepth, 1);
+            Node root = CreateNode(TreeDepth, Random.Range(NodeValMin, NodeValMax));
             PrintPreOrder(root);
-            InstantiateNodes(root, new Vector3(0, 0, 0));
+            InstantiateNodes(root, SpawnLocation);
             SetTargetSum();
 
         }
 
+
         public Node CreateNode(int depth, int val)
         {
             Node node = new Node(val, depth);
-            NodeList.Add(node);
 
             if (depth == 1)
             {
+                NodeList.Add(node); //Add node by level for use in getting target sum.
                 return node;
             }
             node.LeftNode = CreateNode(depth - 1, Random.Range(NodeValMin, NodeValMax));
@@ -125,7 +157,6 @@ namespace PaulLabs
                 minIdx = maxIdx + 1;
                 maxIdx = maxIdx + 1 + (int)(Mathf.Pow(2, power));
             }
-
             TargetSumText.text = $"TargetSum: {TargetSum}";
         }
 
@@ -134,14 +165,17 @@ namespace PaulLabs
             if (node != null)
             {
                 GameObject nodeGO = Instantiate(NodeGO, spawnLocation, Quaternion.identity);
+                nodeGO.transform.SetParent(NodeParent.transform);
                 nodeGO.GetComponent<NodeMB>().Node = node;
-                nodeGO.transform.GetComponentInChildren<TMP_Text>().text = node.NodeVal.ToString(); //move this to nodemb
+                nodeGO.transform.GetComponentInChildren<TMP_Text>().text = node.NodeVal.ToString();
                 NodeGOList.Add(nodeGO.GetComponent<NodeMB>());
-                InstantiateNodes(node.LeftNode, spawnLocation + new Vector3(-2.5f, -1.5f, 0)); //todo figure out how to instantiate these split apart
-                InstantiateNodes(node.RightNode, spawnLocation + new Vector3(2.5f, -1.5f, 0));
+                InstantiateNodes(node.LeftNode, spawnLocation + new Vector3(-Mathf.Pow(2, node.Depth) / 2, -1.5f, 0));
+                InstantiateNodes(node.RightNode, spawnLocation + new Vector3(Mathf.Pow(2, node.Depth) / 2, -1.5f, 0));
+
             }
         }
 
+        //Used for debugging
         public void PrintPreOrder(Node node)
         {
             if (node != null)
@@ -158,19 +192,37 @@ namespace PaulLabs
             if (SelectedNodeList.Sum(node => node.NodeVal) == TargetSum)
             {
                 PlayVictorySound();
-                //show success ui
+                ShowSuccessImage();
+                GameObject fx = Instantiate(FireWorksFX, SpawnLocation, Quaternion.identity);
+                Destroy(fx, 1f);
             }
             return;
         }
 
+        //reset game,clear all lists,reset ui
         public void ResetGame()
         {
-            //reset game
+            TargetSum = 0;
+            NodeList.Clear();
+            NodeGOList.Clear();
+            SelectedNodeList.Clear();
+            SuccessPanel.SetActive(false);
+            foreach (Transform t in NodeParent.transform)
+            {
+                Destroy(t.gameObject);
+            }
+            StartGame();
         }
 
-        public void PlayVictorySound()
+        void PlayVictorySound()
         {
-            audioSource.PlayOneShot(VictorySound);
+            _audioSource.clip = VictorySound;
+            _audioSource.Play();
+        }
+
+        void ShowSuccessImage()
+        {
+            SuccessPanel.SetActive(true);
         }
 
     }
