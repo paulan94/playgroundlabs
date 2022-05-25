@@ -659,7 +659,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   TreeDepthMin: 3
-  TreeDepthMax: 4
+  TreeDepthMax: 6
   NodeValMin: 1
   NodeValMax: 10
   SpawnLocation: {x: 0, y: 3, z: 0}
